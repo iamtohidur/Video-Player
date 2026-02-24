@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fragrant Flowers Blossom - HD Player</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        
+        .progress-bar {
+            background: rgba(255, 255, 255, 0.2);
+            height: 4px;
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            height: 100%;
+            width: 0%;
+            transition: width 0.1s linear;
+            position: relative;
+        }
+        
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            right: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            background: white;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .progress-bar:hover .progress-fill::after {
+            opacity: 1;
+        }
+        
+        .control-btn {
+            transition: all 0.2s;
+        }
+        
+        .control-btn:hover {
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .episode-item {
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+        
+        .episode-item:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-left-color: #3b82f6;
+        }
+        
+        .episode-item.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-left-color: #3b82f6;
+        }
+        
+        .quality-badge {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        .notification {
+            transform: translateY(-100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .notification.show {
+            transform: translateY(0);
+        }
+        
+        .volume-slider {
+            -webkit-appearance: none;
+            width: 100px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+        }
+        
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .playlist-sidebar {
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .playlist-sidebar.open {
+            transform: translateX(0);
+        }
+        
+        .overlay {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        
+        .overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .play-overlay {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+        }
+        
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="text-white overflow-x-hidden">
+
+    <!-- Notification Bar -->
+    <div id="notification" class="notification fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 shadow-lg flex items-center justify-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <span id="notification-text" class="font-medium">Welcome to Fragrant Flowers Blossom HD Player</span>
+    </div>
+
+    <!-- Overlay for mobile playlist -->
+    <div id="overlay" class="overlay fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onclick="togglePlaylist()"></div>
+
+    <!-- Main Container -->
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        
+        <!-- Header -->
+        <header class="mb-8 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Fragrant Flowers Blossom</h1>
+                    <p class="text-slate-400 text-sm">HD Player</p>
+                </div>
+            </div>
+            <button onclick="togglePlaylist()" class="lg:hidden glass-panel px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-700 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                Playlist
+            </button>
+        </header>
+
+        <div class="flex gap-6 relative">
+            <!-- Main Content -->
+            <div class="flex-1">
+                
+                <!-- Video Info -->
+                <div class="mb-4 flex items-start justify-between">
+                    <div>
+                        <h2 id="current-episode-title" class="text-2xl font-bold text-white mb-1">Episode 1 - Rintaro and Kaoruko</h2>
+                        <p class="text-slate-400 text-sm flex items-center gap-2">
+                            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                            Now Playing • 23:45 • Subtitled
+                        </p>
+                    </div>
+                    <div class="flex gap-2">
+                        <span class="px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 text-xs font-semibold border border-blue-500/30">HD</span>
+                        <span class="px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 text-xs font-semibold border border-purple-500/30">SUB</span>
+                    </div>
+                </div>
+
+                <!-- Video Player -->
+                <div class="video-container group relative aspect-video bg-black mb-6">
+                    <!-- Video Element -->
+                    <video id="video-player" class="w-full h-full object-cover" poster="https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=1280&h=720&fit=crop">
+                        <source src="" type="video/mp4">
+                    </video>
+
+                    <!-- Loading Spinner -->
+                    <div id="loading" class="absolute inset-0 flex items-center justify-center hidden">
+                        <div class="loading-spinner"></div>
+                    </div>
+
+                    <!-- Play Overlay -->
+                    <div id="play-overlay" class="absolute inset-0 play-overlay flex items-center justify-center cursor-pointer group-hover:opacity-100 transition-opacity" onclick="togglePlay()">
+                        <div class="w-20 h-20 rounded-full bg-white/20 backdrop-blur flex items-center justify-center border border-white/30 hover:scale-110 transition-transform">
+                            <svg id="play-icon" class="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            <svg id="pause-icon" class="w-10 h-10 text-white hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- Quality Badge -->
+                    <div class="absolute top-4 right-4 quality-badge px-3 py-1 rounded-lg text-xs font-bold text-white shadow-lg">
+                        1080p
+                    </div>
+
+                    <!-- Controls Bar -->
+                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <!-- Progress Bar -->
+                        <div class="progress-bar mb-4" onclick="seek(event)">
+                            <div id="progress-fill" class="progress-fill"></div>
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <button onclick="togglePlay()" class="control-btn p-2 rounded-full">
+                                    <svg id="control-play" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                    <svg id="control-pause" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                                </button>
+                                
+                                <button onclick="skip(-10)" class="control-btn p-2 rounded-full" title="Back 10s">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.333 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"></path></svg>
+                                </button>
+
+                                <div class="flex items-center gap-2 group/volume">
+                                    <button onclick="toggleMute()" class="control-btn p-2 rounded-full">
+                                        <svg id="volume-high" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                                        <svg id="volume-mute" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+                                    </button>
+                                    <input type="range" id="volume-slider" class="volume-slider hidden group-hover/volume:block" min="0" max="100" value="100" oninput="setVolume(this.value)">
+                                </div>
+
+                                <span id="time-display" class="text-sm text-slate-300 font-mono">00:00 / 23:45</span>
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                <button onclick="togglePlaylist()" class="control-btn p-2 rounded-full lg:flex hidden" title="Playlist">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                                </button>
+                                <button onclick="toggleFullscreen()" class="control-btn p-2 rounded-full" title="Fullscreen">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Episode Description -->
+                <div class="glass-panel rounded-xl p-6 mb-6">
+                    <h3 class="text-lg font-semibold mb-2 text-blue-400">Episode Synopsis</h3>
+                    <p id="episode-description" class="text-slate-300 leading-relaxed">
+                        While helping at his family's patisserie, Rintaro meets Kaoruko. He fears his appearance has scared her off - but she returns the next day to see him. The beginning of an unexpected friendship between a boy from a delinquent school and a girl from an elite academy.
+                    </p>
+                    <div class="mt-4 flex gap-4 text-sm text-slate-400">
+                        <span class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Aired: July 6, 2025
+                        </span>
+                        <span class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            2.4M views
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Playlist Sidebar -->
+            <div id="playlist-sidebar" class="playlist-sidebar open lg:translate-x-0 lg:static lg:w-96 w-full fixed right-0 top-0 h-full z-50 lg:z-auto glass-panel lg:rounded-xl lg:h-auto lg:block border-l lg:border-l-0 lg:border border-slate-700/50 overflow-hidden flex flex-col">
+                <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
+                    <h3 class="font-bold text-lg flex items-center gap-2">
+                        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
+                        Episodes
+                    </h3>
+                    <button onclick="togglePlaylist()" class="lg:hidden p-2 hover:bg-slate-700 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto p-2 space-y-1" id="episode-list">
+                    <!-- Episodes will be populated by JS -->
+                </div>
+                
+                <div class="p-4 border-t border-slate-700/50 text-center text-xs text-slate-500">
+                    13 Episodes • Season 1
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Episode Data
+        const episodes = [
+            { id: 1, title: "Rintaro and Kaoruko", duration: "23:45", desc: "While helping at his family's patisserie, Rintaro meets Kaoruko. He fears his appearance has scared her off - but she returns the next day to see him.", date: "July 6, 2025" },
+            { id: 2, title: "Chidori and Kikyo", duration: "23:40", desc: "Tensions between the two schools escalate during a commotion at Chidori's gates. Later, Rintaro finds a surprise visitor waiting at the patisserie.", date: "July 13, 2025" },
+            { id: 3, title: "A Kind Person", duration: "23:42", desc: "Desperate to improve their grades, Rintaro and Shohei cram in the library. There, Rintaro runs into Kaoruko, but their tender moment gets interrupted.", date: "July 20, 2025" },
+            { id: 4, title: "The Temperature of the Heart", duration: "23:38", desc: "Though Rintaro becomes more comfortable with Kaoruko during their study session, he faces unexpectedly strong opposition to their growing bond.", date: "July 27, 2025" },
+            { id: 5, title: "Premonition of a Beginning", duration: "23:45", desc: "While celebrating passing the mid-term exams, Shohei, Ayato and Saku nearly discover Rintaro's secret. Will he finally tell them the truth?", date: "August 3, 2025" },
+            { id: 6, title: "Love and Hate", duration: "23:41", desc: "It's an important night of confessions, apologies and cherished memories when Subaru and Kaoruko catch up at the park where they used to play as kids.", date: "August 10, 2025" },
+            { id: 7, title: "A Cool Guy", duration: "23:44", desc: "Noticing Rintaro's strange behavior, Shohei, Saku and Ayato follow him after school and try to eavesdrop on his meeting with Kaoruko and Subaru.", date: "August 17, 2025" },
+            { id: 8, title: "The Nature of Feelings", duration: "23:39", desc: "Despite the awkwardness, Rintaro manages to introduce his friends to the girls. Later, Kaoruko makes a bold suggestion on how Rintaro could repay her.", date: "August 24, 2025" },
+            { id: 9, title: "Blonde and Piercings", duration: "23:43", desc: "While Rintaro struggles with his tangled emotions about Kaoruko, he invites his friends over to his home - but two unexpected visitors shake things up.", date: "August 31, 2025" },
+            { id: 10, title: "Blue Storm", duration: "23:40", desc: "To prepare for their finals, the six Chidori and Kikyo students hold a joint study session. Later, Shohei makes a sharp observation about Rintaro.", date: "September 7, 2025" },
+            { id: 11, title: "A Warm Bite", duration: "23:42", desc: "Kaoruko's birthday is in two weeks, and Rintaro is unsure of a gift until his mother gives valuable advice. Can he bake the perfect cake for her?", date: "September 14, 2025" },
+            { id: 12, title: "Reunion by the Sea", duration: "23:45", desc: "While everyone else is having fun at the beach, Subaru seems down. When prodded, she reveals her worries and makes a request to the four Chidori boys.", date: "September 21, 2025" },
+            { id: 13, title: "Kaoruko and Rintaro", duration: "24:10", desc: "With things still left unspoken between them, Rintaro arranges to meet Kaoruko and express his true feelings. Kaoruko has her own thoughts to share.", date: "September 28, 2025" }
+        ];
+
+        let currentEpisode = 1;
+        let isPlaying = false;
+        let currentTime = 0;
+        let duration = 1425; // 23:45 in seconds
+        let playbackInterval;
+        let isMuted = false;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            renderEpisodes();
+            showNotification('Welcome to Fragrant Flowers Blossom HD Player');
+            updateTimeDisplay();
+        });
+
+        // Render Episodes
+        function renderEpisodes() {
+            const list = document.getElementById('episode-list');
+            list.innerHTML = episodes.map(ep => `
+                <div class="episode-item ${ep.id === currentEpisode ? 'active' : ''} p-3 rounded-lg cursor-pointer flex gap-3" onclick="loadEpisode(${ep.id})">
+                    <div class="relative w-24 h-14 rounded bg-slate-800 flex-shrink-0 overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-br from-blue-600/30 to-purple-600/30"></div>
+                        <span class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white/80">${ep.id}</span>
+                        ${ep.id === currentEpisode ? '<div class="absolute inset-0 flex items-center justify-center bg-black/50"><div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div></div>' : ''}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="text-sm font-medium text-white truncate">Ep ${ep.id} - ${ep.title}</h4>
+                        <p class="text-xs text-slate-400 mt-1">${ep.duration}</p>
+                    </div>
+                    ${ep.id === currentEpisode ? '<svg class="w-4 h-4 text-blue-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>' : ''}
+                </div>
+            `).join('');
+        }
+
+        // Load Episode
+        function loadEpisode(id) {
+            if (id === currentEpisode) return;
+            
+            currentEpisode = id;
+            const ep = episodes.find(e => e.id === id);
+            
+            // Update UI
+            document.getElementById('current-episode-title').textContent = `Episode ${ep.id} - ${ep.title}`;
+            document.getElementById('episode-description').textContent = ep.desc;
+            
+            // Reset player
+            isPlaying = false;
+            currentTime = 0;
+            updatePlayButton();
+            updateProgress();
+            renderEpisodes();
+            
+            // Show notification
+            showNotification(`Now playing: Episode ${ep.id} - ${ep.title}`);
+            
+            // Auto play after short delay
+            setTimeout(() => {
+                togglePlay();
+            }, 500);
+        }
+
+        // Play/Pause Toggle
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            updatePlayButton();
+            
+            if (isPlaying) {
+                document.getElementById('play-overlay').classList.add('opacity-0', 'pointer-events-none');
+                playbackInterval = setInterval(() => {
+                    currentTime++;
+                    if (currentTime >= duration) {
+                        currentTime = 0;
+                        togglePlay();
+                    }
+                    updateProgress();
+                    updateTimeDisplay();
+                }, 1000);
+            } else {
+                clearInterval(playbackInterval);
+                document.getElementById('play-overlay').classList.remove('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        function updatePlayButton() {
+            const playIcons = ['play-icon', 'control-play'];
+            const pauseIcons = ['pause-icon', 'control-pause'];
+            
+            playIcons.forEach(id => document.getElementById(id).classList.toggle('hidden', isPlaying));
+            pauseIcons.forEach(id => document.getElementById(id).classList.toggle('hidden', !isPlaying));
+        }
+
+        // Progress Bar
+        function updateProgress() {
+            const percent = (currentTime / duration) * 100;
+            document.getElementById('progress-fill').style.width = percent + '%';
+        }
+
+        function seek(event) {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const percent = (event.clientX - rect.left) / rect.width;
+            currentTime = Math.floor(percent * duration);
+            updateProgress();
+            updateTimeDisplay();
+        }
+
+        // Time Display
+        function updateTimeDisplay() {
+            const current = formatTime(currentTime);
+            const total = formatTime(duration);
+            document.getElementById('time-display').textContent = `${current} / ${total}`;
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Volume Control
+        function setVolume(value) {
+            // Simulate volume change
+            if (value == 0) {
+                document.getElementById('volume-high').classList.add('hidden');
+                document.getElementById('volume-mute').classList.remove('hidden');
+            } else {
+                document.getElementById('volume-high').classList.remove('hidden');
+                document.getElementById('volume-mute').classList.add('hidden');
+            }
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            const slider = document.getElementById('volume-slider');
+            if (isMuted) {
+                slider.value = 0;
+                setVolume(0);
+            } else {
+                slider.value = 100;
+                setVolume(100);
+            }
+        }
+
+        // Skip
+        function skip(seconds) {
+            currentTime = Math.max(0, Math.min(duration, currentTime + seconds));
+            updateProgress();
+            updateTimeDisplay();
+            showNotification(`Skipped ${seconds > 0 ? 'forward' : 'back'} ${Math.abs(seconds)} seconds`);
+        }
+
+        // Fullscreen
+        function toggleFullscreen() {
+            const container = document.querySelector('.video-container');
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(err => {
+                    showNotification('Fullscreen mode not supported');
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Playlist Toggle
+        function togglePlaylist() {
+            const sidebar = document.getElementById('playlist-sidebar');
+            const overlay = document.getElementById('overlay');
+            
+            if (window.innerWidth < 1024) {
+                sidebar.classList.toggle('open');
+                overlay.classList.toggle('active');
+            }
+        }
+
+        // Notification
+        function showNotification(text) {
+            const notif = document.getElementById('notification');
+            const notifText = document.getElementById('notification-text');
+            
+            notifText.textContent = text;
+            notif.classList.add('show');
+            
+            setTimeout(() => {
+                notif.classList.remove('show');
+            }, 3000);
+        }
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                togglePlay();
+            } else if (e.code === 'ArrowRight') {
+                skip(10);
+            } else if (e.code === 'ArrowLeft') {
+                skip(-10);
+            } else if (e.code === 'KeyF') {
+                toggleFullscreen();
+            }
+        });
+    </script>
+</body>
+</html>
